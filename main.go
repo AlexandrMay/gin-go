@@ -2,8 +2,10 @@ package main
 
 import (
 	"gin-go/db"
-	"gin-go/models"
-	"net/http"
+	"gin-go/routes"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/gin-gonic/gin"
 )
@@ -11,29 +13,16 @@ import (
 func main() {
 	db.InitDB()
 	server := gin.Default()
+	routes.RegisterRoutes(server)
 
-	server.GET("/events", getEvents)
-	server.POST("/events", createEvent)
+	go func() {
+		err := server.Run(":8080")
+		if err != nil {
+			panic(err)
+		}
+	}()
 
-	server.Run(":8080")
-
-}
-
-func createEvent(context *gin.Context) {
-	var event models.Event
-	err := context.ShouldBindJSON(&event)
-	if err != nil {
-		context.JSON(http.StatusBadRequest, gin.H{"message": "Could not parse request data."})
-		return
-	}
-	event.ID = 1
-	event.UserID = 1
-	context.JSON(http.StatusCreated, gin.H{"message": "Event created", "event": event})
-
-	event.Save()
-}
-
-func getEvents(context *gin.Context) {
-	events := models.GetAllEvents()
-	context.JSON(http.StatusOK, events)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
 }
